@@ -1,7 +1,5 @@
 import { Telegraf } from "telegraf";
 import { upsertUser, getAllUsers } from "./db.js";
-import { runBackupNow } from "./backup.js";
-
 export const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // /start
