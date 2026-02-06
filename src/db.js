@@ -72,3 +72,19 @@ export function countUsers() {
   const c = res?.[0]?.values?.[0]?.[0] ?? 0;
   return c;
 }
+
+export function exportUsersJson() {
+  const res = db.exec(`
+    SELECT user_id, username, first_name, last_name, created_at, updated_at
+    FROM users
+    ORDER BY updated_at DESC
+  `);
+
+  if (!res[0]) return [];
+
+  const cols = res[0].columns;
+  return res[0].values.map(row =>
+    Object.fromEntries(row.map((v, i) => [cols[i], v]))
+  );
+}
+

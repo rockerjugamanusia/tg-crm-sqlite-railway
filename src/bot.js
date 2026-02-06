@@ -1,11 +1,8 @@
 import "dotenv/config";
 import { Telegraf } from "telegraf";
 import { initDb, saveUser, countUsers } from "./db.js";
-
 import { setupTelegramBackup } from "./backup.js";
 import { exportUsersJson } from "./db.js";
-
-
 import fs from "fs";
 
 
