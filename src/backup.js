@@ -44,9 +44,15 @@ export function setupTelegramBackup(bot, exportUsersJson) {
 
   // MANUAL BACKUP VIA BOT
   bot.command("backup", async (ctx) => {
-    if (ADMIN_ID && ctx.from.id !== ADMIN_ID) return;
-    await ctx.reply("⏳ Backup berjalan...");
+  if (ADMIN_ID && ctx.from.id !== ADMIN_ID) return;
+  await ctx.reply("⏳ Backup berjalan...");
+  try {
     await runBackup();
     await ctx.reply("✅ Backup dikirim ke channel.");
-  });
+  } catch (e) {
+    console.error(e);
+    await ctx.reply("❌ Backup gagal. Cek log.");
+  }
+});
+
 }
