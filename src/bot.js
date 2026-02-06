@@ -2,8 +2,12 @@ import { Telegraf } from "telegraf";
 import express from "express";
 import { runBackupNow, isAdmin, setupBackupCron } from "./backup.js";
 
+// src/bot.js
 const BOT_TOKEN = process.env.BOT_TOKEN;
-if (!BOT_TOKEN) throw new Error("BOT_TOKEN belum diset");
+if (!BOT_TOKEN) throw new Error("BOT_TOKEN belum diset di Variables Railway");
+
+export const bot = new Telegraf(BOT_TOKEN);
+
 
 export const bot = new Telegraf(BOT_TOKEN);
 
