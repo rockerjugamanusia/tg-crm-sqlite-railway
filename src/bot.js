@@ -18,7 +18,7 @@ bot.command("backup", async (ctx) => {
   await ctx.reply(res.ok ? "✅ Selesai." : `❌ Gagal: ${res.error}`);
 });
 
-// ====== MODE RUN: WEBHOOK (Railway) ======
+// MODE RUN: WEBHOOK (Railway)
 const app = express();
 app.use(express.json());
 
