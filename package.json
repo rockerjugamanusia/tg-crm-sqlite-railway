@@ -1,0 +1,9 @@
+{
+  "name": "tg-crm-sqlite-railway",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/bot.js",
+  "scripts": {
+    "start": "node src/bot.js"
+  }
+}
