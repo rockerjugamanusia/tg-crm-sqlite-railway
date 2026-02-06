@@ -1,26 +1,30 @@
 import "dotenv/config";
 import { Telegraf } from "telegraf";
-import { saveUser, countUsers } from "./db.js";
+import { initDb, saveUser, countUsers } from "./db.js";
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-bot.use(async (ctx, next) => {
-  if (ctx.from) saveUser(ctx.from);
-  return next();
-});
+(async () => {
+  await initDb();
 
-bot.start(async (ctx) => {
-  await ctx.reply("✅ Kamu sudah tersimpan di database.");
-});
+  bot.use(async (ctx, next) => {
+    if (ctx.from) saveUser(ctx.from);
+    return next();
+  });
 
-bot.command("count", async (ctx) => {
-  const total = await countUsers();
-  await ctx.reply(`Total user tersimpan: ${total}`);
-});
+  bot.start(async (ctx) => {
+    await ctx.reply("✅ Kamu sudah tersimpan di database.");
+  });
 
-bot.on("message", async (ctx) => {
-  await ctx.reply("OK 👍");
-});
+  bot.command("count", async (ctx) => {
+    const total = countUsers();
+    await ctx.reply(`Total user tersimpan: ${total}`);
+  });
 
-bot.launch();
-console.log("✅ Bot running...");
+  bot.on("message", async (ctx) => {
+    await ctx.reply("OK 👍");
+  });
+
+  bot.launch();
+  console.log("✅ Bot running...");
+})();
