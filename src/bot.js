@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { Telegraf } from "telegraf";
 import { initDb, saveUser, countUsers } from "./db.js";
+import fs from "fs";
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
@@ -21,6 +22,14 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
     await ctx.reply(`Total user tersimpan: ${total}`);
   });
 
+  bot.command("getdb", async (ctx) => {
+  const file = "/app/data/crm.sqlite";
+  if (!fs.existsSync(file)) {
+    return ctx.reply("Database belum ada.");
+  }
+  await ctx.replyWithDocument({ source: file });
+});
+  
   bot.on("message", async (ctx) => {
     await ctx.reply("OK 👍");
   });
