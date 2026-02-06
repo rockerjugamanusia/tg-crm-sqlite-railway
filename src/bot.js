@@ -5,8 +5,14 @@ import { setupTelegramBackup } from "./backup.js";
 import { exportUsersJson } from "./db.js";
 import fs from "fs";
 
-
 const bot = new Telegraf(process.env.BOT_TOKEN);
+import express from "express";
+const app = express();
+app.use(bot.webhookCallback("/telegraf"));
+app.listen(process.env.PORT || 3000);
+
+await bot.telegram.setWebhook(`${process.env.WEBHOOK_DOMAIN}/telegraf`);
+
 
 (async () => {
   await initDb();
