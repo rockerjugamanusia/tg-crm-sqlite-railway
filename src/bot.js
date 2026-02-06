@@ -25,7 +25,7 @@ bot.launch();
   });
 
   bot.start(async (ctx) => {
-    await ctx.reply("✅ Kamu sudah tersimpan di database.");
+    await ctx.reply("✅ LANJUT JOIN YANG LAIN BIAR CROT CROT.");
   });
 
   bot.command("count", async (ctx) => {
