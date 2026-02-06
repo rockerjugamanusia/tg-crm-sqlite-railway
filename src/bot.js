@@ -45,9 +45,16 @@ bot.command("users", async (ctx) => {
   await ctx.reply("👥 Users (max 50):\n" + text);
 });
 
+import { runBackupNow, isAdmin, setupBackupCron } from "./backup.js";
+
+// pas app start
+setupBackupCron(bot);
+
+// command manual
 bot.command("backup", async (ctx) => {
   if (!isAdmin(ctx)) return ctx.reply("❌ Kamu bukan admin.");
-  await ctx.reply("⏳ Menjalankan backup...");
-  const res = await runBackupNow({ reason: "manual" });
-  await ctx.reply(res.ok ? "✅ Backup terkirim." : `❌ Backup gagal: ${res.error}`);
+  await ctx.reply("⏳ Backup jalan...");
+  const res = await runBackupNow(bot, { reason: "manual" });
+  await ctx.reply(res.ok ? "✅ Selesai." : `❌ Gagal: ${res.error}`);
 });
+
