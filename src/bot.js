@@ -1,56 +1,53 @@
-import "dotenv/config";
 import { Telegraf } from "telegraf";
-import { initDb, saveUser, countUsers } from "./db.js";
-import { setupTelegramBackup } from "./backup.js";
-import { exportUsersJson } from "./db.js";
-import fs from "fs";
+import { upsertUser, getAllUsers } from "./db.js";
+import { runBackupNow } from "./backup.js";
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
-import express from "express";
-const app = express();
-app.use(bot.webhookCallback("/telegraf"));
-app.listen(process.env.PORT || 3000);
+export const bot = new Telegraf(process.env.BOT_TOKEN);
 
-await bot.telegram.setWebhook(`${process.env.WEBHOOK_DOMAIN}/telegraf`);
+// /start
+bot.start(async (ctx) => {
+  const u = ctx.from;
+  await upsertUser(u);
 
-
-(async () => {
-  await initDb();
-setupTelegramBackup(bot, exportUsersJson);
-bot.launch();
-
-  bot.use(async (ctx, next) => {
-    if (ctx.from) saveUser(ctx.from);
-    return next();
-  });
-
-  bot.start(async (ctx) => {
-    await ctx.reply("✅ LANJUT JOIN YANG LAIN BIAR CROT CROT.");
-  });
-
-  bot.command("count", async (ctx) => {
-    const total = countUsers();
-    await ctx.reply(`Total user tersimpan: ${total}`);
-  });
-
-
-  bot.command("getjson", async (ctx) => {
-  await ctx.replyWithDocument({ source: "/app/data/users.json" });
+  await ctx.reply(
+    "✅ Kamu sudah tersimpan ke database.\n\n" +
+      "Perintah:\n" +
+      "/me - lihat data kamu\n" +
+      "/users - list users (admin)\n" +
+      "/backup - kirim backup sekarang (admin)"
+  );
 });
 
-  bot.command("getdb", async (ctx) => {
-  const file = "/app/data/crm.sqlite";
-  if (!fs.existsSync(file)) {
-    return ctx.reply("Database belum ada.");
-  }
-  await ctx.replyWithDocument({ source: file });
+bot.command("me", async (ctx) => {
+  const u = ctx.from;
+  await upsertUser(u);
+  await ctx.reply(
+    `🧾 Data kamu:\nID: ${u.id}\nUsername: ${u.username || "-"}\nNama: ${u.first_name || "-"} ${u.last_name || ""}`
+  );
 });
-  
-  bot.on("message", async (ctx) => {
-    await ctx.reply("OK 👍");
-  });
 
+function isAdmin(ctx) {
+  const adminId = String(process.env.ADMIN_ID || "");
+  return adminId && String(ctx.from?.id) === adminId;
+}
 
-  bot.launch();
-  console.log("✅ Bot running...");
-})();
+bot.command("users", async (ctx) => {
+  if (!isAdmin(ctx)) return ctx.reply("❌ Kamu bukan admin.");
+
+  const rows = await getAllUsers();
+  if (!rows.length) return ctx.reply("Belum ada user.");
+
+  const text = rows
+    .slice(0, 50)
+    .map((r, i) => `${i + 1}. ${r.user_id} | @${r.username || "-"} | ${r.first_name || "-"} ${r.last_name || ""}`)
+    .join("\n");
+
+  await ctx.reply("👥 Users (max 50):\n" + text);
+});
+
+bot.command("backup", async (ctx) => {
+  if (!isAdmin(ctx)) return ctx.reply("❌ Kamu bukan admin.");
+  await ctx.reply("⏳ Menjalankan backup...");
+  const res = await runBackupNow({ reason: "manual" });
+  await ctx.reply(res.ok ? "✅ Backup terkirim." : `❌ Backup gagal: ${res.error}`);
+});
