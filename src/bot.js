@@ -14,7 +14,8 @@ bot.start(async (ctx) => {
 });
 
 bot.command("count", async (ctx) => {
-  await ctx.reply(`Total user tersimpan: ${countUsers()}`);
+  const total = await countUsers();
+  await ctx.reply(`Total user tersimpan: ${total}`);
 });
 
 bot.on("message", async (ctx) => {
