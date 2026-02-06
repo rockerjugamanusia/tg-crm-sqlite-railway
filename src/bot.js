@@ -1,54 +1,16 @@
 import { Telegraf } from "telegraf";
-import { upsertUser, getAllUsers } from "./db.js";
-export const bot = new Telegraf(process.env.BOT_TOKEN);
-
-// /start
-bot.start(async (ctx) => {
-  const u = ctx.from;
-  await upsertUser(u);
-
-  await ctx.reply(
-    "✅ Kamu sudah tersimpan ke database.\n\n" +
-      "Perintah:\n" +
-      "/me - lihat data kamu\n" +
-      "/users - list users (admin)\n" +
-      "/backup - kirim backup sekarang (admin)"
-  );
-});
-
-bot.command("me", async (ctx) => {
-  const u = ctx.from;
-  await upsertUser(u);
-  await ctx.reply(
-    `🧾 Data kamu:\nID: ${u.id}\nUsername: ${u.username || "-"}\nNama: ${u.first_name || "-"} ${u.last_name || ""}`
-  );
-});
-
-function isAdmin(ctx) {
-  const adminId = String(process.env.ADMIN_ID || "");
-  return adminId && String(ctx.from?.id) === adminId;
-}
-
-bot.command("users", async (ctx) => {
-  if (!isAdmin(ctx)) return ctx.reply("❌ Kamu bukan admin.");
-
-  const rows = await getAllUsers();
-  if (!rows.length) return ctx.reply("Belum ada user.");
-
-  const text = rows
-    .slice(0, 50)
-    .map((r, i) => `${i + 1}. ${r.user_id} | @${r.username || "-"} | ${r.first_name || "-"} ${r.last_name || ""}`)
-    .join("\n");
-
-  await ctx.reply("👥 Users (max 50):\n" + text);
-});
-
+import express from "express";
 import { runBackupNow, isAdmin, setupBackupCron } from "./backup.js";
 
-// pas app start
+const BOT_TOKEN = process.env.BOT_TOKEN;
+if (!BOT_TOKEN) throw new Error("BOT_TOKEN belum diset");
+
+export const bot = new Telegraf(BOT_TOKEN);
+
+// ✅ pasang cron sekali
 setupBackupCron(bot);
 
-// command manual
+// ✅ command manual backup
 bot.command("backup", async (ctx) => {
   if (!isAdmin(ctx)) return ctx.reply("❌ Kamu bukan admin.");
   await ctx.reply("⏳ Backup jalan...");
@@ -56,3 +18,30 @@ bot.command("backup", async (ctx) => {
   await ctx.reply(res.ok ? "✅ Selesai." : `❌ Gagal: ${res.error}`);
 });
 
+// ====== MODE RUN: WEBHOOK (Railway) ======
+const app = express();
+app.use(express.json());
+
+app.get("/", (req, res) => res.status(200).send("OK"));
+
+app.post("/telegraf", (req, res) => {
+  bot.handleUpdate(req.body, res);
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, async () => {
+  const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : process.env.PUBLIC_URL;
+
+  if (!BASE_URL) {
+    console.log("⚠️ PUBLIC_URL / RAILWAY_PUBLIC_DOMAIN belum ada. Webhook tidak diset.");
+    console.log("✅ Server jalan di port", PORT);
+    return;
+  }
+
+  const webhookUrl = `${BASE_URL}/telegraf`;
+  await bot.telegram.setWebhook(webhookUrl);
+  console.log("✅ Webhook set:", webhookUrl);
+  console.log("✅ Server jalan di port", PORT);
+});
