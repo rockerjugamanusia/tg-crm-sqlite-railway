@@ -1,40 +1,47 @@
-import "dotenv/config";
+// src/db.js
 import fs from "fs";
 import path from "path";
 import initSqlJs from "sql.js";
 
-const DB_DIR = process.env.DB_DIR || "./data";
-const DB_FILE = process.env.DB_FILE || "crm.sqlite";
-if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
-const dbPath = path.join(DB_DIR, DB_FILE);
+const DATA_DIR = process.env.DATA_DIR || "/app/data";
+const DB_FILE  = process.env.DB_FILE || "crm.sqlite";
+const DB_PATH  = path.join(DATA_DIR, DB_FILE);
 
-let SQL;
-let db;
-let saveTimer = null;
+let SQL = null;
+let db = null;
 
-function scheduleSave() {
-  if (saveTimer) return;
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    const data = db.export();
-    fs.writeFileSync(dbPath, Buffer.from(data));
-  }, 500); // debounce
+function ensureDir() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-export async function initDb() {
-  if (db) return;
+async function getSQL() {
+  if (SQL) return SQL;
 
-  SQL = await initSqlJs({});
-  if (fs.existsSync(dbPath)) {
-    const fileBuf = fs.readFileSync(dbPath);
-    db = new SQL.Database(new Uint8Array(fileBuf));
+  // sql.js butuh locateFile agar bisa load wasm di node_modules
+  SQL = await initSqlJs({
+    locateFile: (file) => `node_modules/sql.js/dist/${file}`,
+  });
+
+  return SQL;
+}
+
+export async function getDb() {
+  if (db) return db;
+
+  ensureDir();
+  const SQL = await getSQL();
+
+  if (fs.existsSync(DB_PATH)) {
+    const filebuf = fs.readFileSync(DB_PATH);
+    db = new SQL.Database(new Uint8Array(filebuf));
   } else {
     db = new SQL.Database();
   }
 
-  db.run(`
+  // Pastikan tabel users ada (biar query tidak error)
+  db.exec(`
     CREATE TABLE IF NOT EXISTS users (
-      user_id INTEGER PRIMARY KEY,
+      user_id TEXT PRIMARY KEY,
       username TEXT,
       first_name TEXT,
       last_name TEXT,
@@ -43,48 +50,34 @@ export async function initDb() {
     );
   `);
 
-  scheduleSave();
+  // Simpan awal
+  await saveDb();
+  return db;
 }
 
-export function saveUser(from) {
-  const stmt = db.prepare(`
-    INSERT INTO users (user_id, username, first_name, last_name)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET
-      username=excluded.username,
-      first_name=excluded.first_name,
-      last_name=excluded.last_name,
-      updated_at=datetime('now')
-  `);
-  stmt.bind([
-    from.id,
-    from.username || "",
-    from.first_name || "",
-    from.last_name || ""
-  ]);
-  stmt.step();
-  stmt.free();
-  scheduleSave();
+export async function saveDb() {
+  if (!db) return;
+  ensureDir();
+  const data = db.export();
+  fs.writeFileSync(DB_PATH, Buffer.from(data));
 }
 
-export function countUsers() {
-  const res = db.exec("SELECT COUNT(*) AS c FROM users");
-  const c = res?.[0]?.values?.[0]?.[0] ?? 0;
-  return c;
-}
+export async function exportUsersJson() {
+  const db = await getDb(); // <- ini kunci: db pasti ada sebelum exec
+  const res = db.exec(`SELECT * FROM users ORDER BY created_at DESC;`);
 
-export function exportUsersJson() {
-  const res = db.exec(`
-    SELECT user_id, username, first_name, last_name, created_at, updated_at
-    FROM users
-    ORDER BY updated_at DESC
-  `);
-
-  if (!res[0]) return [];
+  if (!res || !res[0]) return [];
 
   const cols = res[0].columns;
-  return res[0].values.map(row =>
-    Object.fromEntries(row.map((v, i) => [cols[i], v]))
-  );
+  const rows = res[0].values;
+
+  return rows.map((r) => {
+    const obj = {};
+    for (let i = 0; i < cols.length; i++) obj[cols[i]] = r[i];
+    return obj;
+  });
 }
 
+export function getDbPath() {
+  return DB_PATH;
+}
